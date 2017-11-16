@@ -105,7 +105,7 @@ namespace Microsoft.Azure.WebJobs.Host.Executors
 
                 config.AddExtension(new TableExtension());
                 config.AddExtension(new QueueExtension());
-                config.AddExtension(new Blobs.Bindings.BlobExtension());
+                config.AddExtension(new Blobs.Bindings.BlobExtensionConfig());
                 config.AddExtension(new BlobTriggerExtension());
             }
 

@@ -19,41 +19,41 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
 
         public static PatternMatcher New(Type typeBuilder, params object[] constructorArgs)
         {
-            return new CreateViaType(typeBuilder, constructorArgs);
+            return new CreateFromType(typeBuilder, constructorArgs);
         }
 
         // T1,T2 may be open types.
         public static PatternMatcher New<T1, T2>(IAsyncConverter<T1, T2> instance)
         {
-            return new CreateViaInstance(instance);
+            return new CreateFromInstance(instance);
         }
 
         public static PatternMatcher New<T1, T2>(IConverter<T1, T2> instance)
         {
-            return new CreateViaInstance(instance);
+            return new CreateFromInstance(instance);
         }
 
         public static PatternMatcher New<TSource, TDest>(Func<TSource, ValueBindingContext, Task<TDest>> func)
         {
             FuncAsyncConverter converter = async (src, attr, ctx) => await func((TSource) src, ctx);
-            return new CreateViaDelegate(converter);
+            return new CreateFromDelegate(converter);
         }
 
         public static PatternMatcher New<TSource, TDest>(Func<TSource, CancellationToken, Task<TDest>> func)
         {
             FuncAsyncConverter converter = async (src, attr, ctx) => await func((TSource)src, ctx.CancellationToken);
-            return new CreateViaDelegate(converter);
+            return new CreateFromDelegate(converter);
         }
 
         public static PatternMatcher New<TSource, TDest>(Func<TSource, TDest> func)
         {
             FuncAsyncConverter converter = (src, attr, ctx) => Task.FromResult<object>(func((TSource)src));
-            return new CreateViaDelegate(converter);
+            return new CreateFromDelegate(converter);
         }
 
         public static PatternMatcher NewObj(object instance)
         {
-            return new CreateViaInstance(instance);
+            return new CreateFromInstance(instance);
         }
 
         public static FuncConverterBuilder GetBuilder(FuncAsyncConverter func)
@@ -171,7 +171,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
             Type invokeType = isTask ? typeof(AsyncInvoker<,>) : typeof(Invoker<,>);
             var typeInvoker = invokeType.MakeGenericType(typeInput, typeOutput);
             var instanceInvoker = (InvokerBase)Activator.CreateInstance(typeInvoker);
-            var func = instanceInvoker.Work(instance);
+            var func = instanceInvoker.Execute(instance);
             return func;
         }
              
@@ -329,14 +329,13 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         // Helper for getting a converter func that invokes the converter interface on an object.
         private abstract class InvokerBase
         {
-            // This should get changed to a FuncAsyncConverter 
-            public abstract FuncAsyncConverter Work(object instance);
+            public abstract FuncAsyncConverter Execute(object instance);
         }
 
         // Get a converter function that invokes IConverter on an object. 
         private class Invoker<TSrc, TDest> : InvokerBase
         {
-            public override FuncAsyncConverter Work(object instance)
+            public override FuncAsyncConverter Execute(object instance)
             {
                 IConverter<TSrc, TDest> converter = (IConverter<TSrc, TDest>)instance;
 
@@ -353,7 +352,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         // Get a converter function that invokes IAsyncConverter on an object. 
         private class AsyncInvoker<TSrc, TDest> : InvokerBase
         {
-            public override FuncAsyncConverter Work(object instance)
+            public override FuncAsyncConverter Execute(object instance)
             {
                 IAsyncConverter<TSrc, TDest> converter = (IAsyncConverter<TSrc, TDest>)instance;
 
@@ -369,12 +368,12 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         }
 
         // Wrapper for matching against a static type. 
-        private class CreateViaType : PatternMatcher
+        private class CreateFromType : PatternMatcher
         {
             private readonly Type _typeConverter;
             private readonly object[] _constructorArgs;
                     
-            public CreateViaType(Type builderType, object[] constructorArgs)
+            public CreateFromType(Type builderType, object[] constructorArgs)
             {
                 _typeConverter = builderType;
                 _constructorArgs = constructorArgs;
@@ -412,12 +411,12 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         }
 
         // Wrapper for matching against an instance. 
-        private class CreateViaInstance : PatternMatcher
+        private class CreateFromInstance : PatternMatcher
         {
             private readonly object _instance;
          
             // Caller verified this is either an IAsyncConverter or IConverter
-            public CreateViaInstance(object instance)
+            public CreateFromInstance(object instance)
             {
                 _instance = instance;
             }
@@ -443,12 +442,12 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         }
 
         // Wrapper for matching against an instance. 
-        private class CreateViaDelegate : PatternMatcher
+        private class CreateFromDelegate : PatternMatcher
         {
             private readonly FuncAsyncConverter _instance;
 
             // Caller verified this is either an IAsyncConverter or IConverter
-            public CreateViaDelegate(FuncAsyncConverter instance)
+            public CreateFromDelegate(FuncAsyncConverter instance)
             {
                 _instance = instance;
             }

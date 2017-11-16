@@ -20,10 +20,10 @@ using Microsoft.WindowsAzure.Storage.Blob;
 
 namespace Microsoft.Azure.WebJobs.Host.Blobs.Bindings
 {
-    internal class BlobExtension : IExtensionConfigProvider,
+    internal class BlobExtensionConfig : IExtensionConfigProvider,
         IAsyncConverter<BlobAttribute, CloudBlobContainer>,
         IAsyncConverter<BlobAttribute, CloudBlobDirectory>,
-        IAsyncConverter<BlobAttribute, BlobExtension.MultiBlobContext>
+        IAsyncConverter<BlobAttribute, BlobExtensionConfig.MultiBlobContext>
     {
         private IStorageAccountProvider _accountProvider;
         private IContextGetter<IBlobWrittenWatcher> _blobWrittenWatcherGetter;
@@ -77,7 +77,7 @@ namespace Microsoft.Azure.WebJobs.Host.Blobs.Bindings
         
         #region Support for binding to Multiple blobs 
         // Open type matching types that can bind to an IEnumerable<T> blob collection. 
-        class MultiBlobType : OpenType
+        class BlobCollectionType : OpenType
         {
             private static readonly Type[] _types = new Type[]
             {
@@ -99,11 +99,11 @@ namespace Microsoft.Azure.WebJobs.Host.Blobs.Bindings
 
         // Converter to produce an IEnumerable<T> for binding to multiple blobs. 
         // T must have been matched by MultiBlobType        
-        class MultiBlobConverer<T> : IAsyncConverter<MultiBlobContext, IEnumerable<T>>
+        class BlobCollectionConverter<T> : IAsyncConverter<MultiBlobContext, IEnumerable<T>>
         {
             private readonly FuncAsyncConverter<IStorageBlob, T> _converter;
 
-            public MultiBlobConverer(BlobExtension parent)
+            public BlobCollectionConverter(BlobExtensionConfig parent)
             {
                 IConverterManager cm = parent._converterManager;
                 _converter = cm.GetConverter<IStorageBlob, T, BlobAttribute>();
@@ -250,7 +250,7 @@ namespace Microsoft.Azure.WebJobs.Host.Blobs.Bindings
             rule.BindToInput<CloudBlobContainer>(this);
 
             rule.BindToInput<MultiBlobContext>(this); // Intermediate private context to capture state
-            rule.AddOpenConverter<MultiBlobContext, IEnumerable<MultiBlobType>>(typeof(MultiBlobConverer<>), this);
+            rule.AddOpenConverter<MultiBlobContext, IEnumerable<BlobCollectionType>>(typeof(BlobCollectionConverter<>), this);
 
             // BindToStream will also handle the custom Stream-->T converters.
             rule.SetPostResolveHook(ToBlobDescr).

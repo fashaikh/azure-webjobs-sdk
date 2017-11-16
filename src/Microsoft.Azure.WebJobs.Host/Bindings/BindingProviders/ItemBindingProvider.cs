@@ -16,7 +16,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
     {
         private readonly INameResolver _nameResolver;
         private readonly Func<TAttribute, Type, Task<IValueBinder>> _builder;
-        private readonly OpenType _filter;
+        private readonly OpenType _filter; // Filter to only apply to types that match this open type. 
 
         public ItemBindingProvider(
                     INameResolver nameResolver,

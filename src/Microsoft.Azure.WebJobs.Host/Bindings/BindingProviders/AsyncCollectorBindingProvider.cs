@@ -216,24 +216,22 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
                 // TType is OpenType 
                 // TType is CloudMessage,   String --> CloudMessage
 
-                var ot = OpenType.FromType<TType>();
+                var openType = OpenType.FromType<TType>();
 
                 // Check for a direct match. 
                 // This is critical when there are no converters, such as if TType is an OpenType
                 foreach (var target in _defaultTypes)
                 {
-                    if (ot.IsMatch(target))
+                    if (openType.IsMatch(target))
                     {
                         return typeof(IAsyncCollector<>).MakeGenericType(target);
                     }
                 }
 
                 // Check if there's a converter 
-                var cm = this._converterManager;
-                                
                 foreach (var target in _defaultTypes)
                 {
-                    if (cm.HasConverter<TAttribute>(target, typeof(TType)))
+                    if (_converterManager.HasConverter<TAttribute>(target, typeof(TType)))
                     {
                         return typeof(IAsyncCollector<>).MakeGenericType(target);
                     }

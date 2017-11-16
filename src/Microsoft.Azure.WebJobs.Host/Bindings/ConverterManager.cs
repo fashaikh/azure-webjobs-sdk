@@ -123,7 +123,7 @@ namespace Microsoft.Azure.WebJobs
                     
             foreach (var entry in GetEntries())
             {
-                if (entry.MatchAttribute(typeAttribute) && entry.Source.IsMatch(typeSource))
+                if (entry.IsMatchAttribute(typeAttribute) && entry.Source.IsMatch(typeSource))
                 {
                     if (entry.Attribute.IsAssignableFrom(typeAttribute))
                     {
@@ -142,7 +142,7 @@ namespace Microsoft.Azure.WebJobs
 
             foreach (var entry in GetEntries())
             {
-                if (entry.MatchAttribute(typeAttribute) && entry.Dest.IsMatch(typeDest))
+                if (entry.IsMatchAttribute(typeAttribute) && entry.Dest.IsMatch(typeDest))
                 {
                     if (entry.Attribute.IsAssignableFrom(typeAttribute))
                     {
@@ -257,7 +257,7 @@ namespace Microsoft.Azure.WebJobs
             
             foreach (var entry in converters)
             {
-                if (entry.Match(typeSource, typeDest, typeAttribute))
+                if (entry.IsMatch(typeSource, typeDest, typeAttribute))
                 {
                     return entry.Builder;
                 }
@@ -317,10 +317,10 @@ namespace Microsoft.Azure.WebJobs
             // TSrc --> IEnum<JObject> --> JArray
             if (typeDest == typeof(JArray))
             {
-                var func2 = GetMiddle<TAttribute, IEnumerable<JObject>>(typeSource, typeDest);
-                if (func2 != null)
+                var converter = GetComposition<TAttribute, IEnumerable<JObject>>(typeSource, typeDest);
+                if (converter != null)
                 {
-                    return func2;
+                    return converter;
                 }           
             }
 
@@ -330,10 +330,10 @@ namespace Microsoft.Azure.WebJobs
             // Byte[] --[builtin]--> String --> TDest
             if (typeSource == typeof(byte[]))
             {
-                var func2 = GetMiddle<TAttribute, string>(typeSource, typeDest);
-                if (func2 != null)
+                var converter = GetComposition<TAttribute, string>(typeSource, typeDest);
+                if (converter != null)
                 {
-                    return func2;
+                    return converter;
                 }
             }
 
@@ -341,19 +341,19 @@ namespace Microsoft.Azure.WebJobs
             // Can we convert from src to dest via a JObject serialization?
             // Common exampe is Poco --> Jobject --> QueueMessage
             {
-                var func = GetMiddle<TAttribute, JObject>(typeSource, typeDest);
-                if (func != null)
+                var converter = GetComposition<TAttribute, JObject>(typeSource, typeDest);
+                if (converter != null)
                 {
-                    return func;
+                    return converter;
                 }
             }
 
             {
                 // Common for blob and stream-based systems.
-                var func = GetMiddle<TAttribute, Stream>(typeSource, typeDest);
-                if (func != null)
+                var converter = GetComposition<TAttribute, Stream>(typeSource, typeDest);
+                if (converter != null)
                 {
-                    return func;
+                    return converter;
                 }
             }
 
@@ -362,7 +362,7 @@ namespace Microsoft.Azure.WebJobs
 
         // Compose via a middle type. 
         // If we have (TSrc --> X) and (X --> TDest), then support (Tsrc-->TDest) via X
-        private FuncAsyncConverter GetMiddle<TAttribute, TMiddle>(Type typeSource, Type typeDest)
+        private FuncAsyncConverter GetComposition<TAttribute, TMiddle>(Type typeSource, Type typeDest)
             where TAttribute : Attribute
         {
             var first = TryGetConverter<TAttribute>(typeSource, typeof(TMiddle));
@@ -383,19 +383,26 @@ namespace Microsoft.Azure.WebJobs
             return null;
         }
 
-
-        // List of all converters. This may refer to an pen type or an exact match. 
+        // The Converter manager maintains a list of all converters. This may refer to an open type or an exact match. 
+        // Entry for that list to describe a converter. 
         private class Entry
         {
+            // Filter for what this can convert from. 
             public OpenType Source { get; set; }
+
+            // Filter for what this can convert to. 
             public OpenType Dest { get; set; }
+
+            // Attribute that this can apply to. 
+            // If this is System.Attribute (the base class), then it will match all attributes. 
             public Type Attribute { get; set; }
 
+            // Converter builder to invoke when we have a match. 
             public FuncConverterBuilder Builder { get; set; }
 
-            public bool MatchAttribute(Type typeAttribute)
+            public bool IsMatchAttribute(Type typeAttribute)
             {
-                if (this.Attribute != typeof(Attribute))
+                if (this.Attribute != typeof(System.Attribute))
                 {
                     if (this.Attribute != typeAttribute)
                     {
@@ -410,11 +417,11 @@ namespace Microsoft.Azure.WebJobs
                 return string.Format("{0} --> {1} (for {2})", this.Source.GetDisplayName(), this.Dest.GetDisplayName(), this.Attribute.Name);
             }
 
-            public bool Match(Type source, Type dest, Type typeAttribute)
+            public bool IsMatch(Type source, Type dest, Type typeAttribute)
             {
                 var ctx = new OpenTypeMatchContext();
 
-                return this.MatchAttribute(typeAttribute) && this.Source.IsMatch(source, ctx) && this.Dest.IsMatch(dest, ctx);
+                return this.IsMatchAttribute(typeAttribute) && this.Source.IsMatch(source, ctx) && this.Dest.IsMatch(dest, ctx);
             }            
         }
 

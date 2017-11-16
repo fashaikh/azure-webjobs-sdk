@@ -6,9 +6,14 @@ using System.Diagnostics;
 
 namespace Microsoft.Azure.WebJobs.Host.Bindings
 {
-    // Ensures that open Types match consistently 
+    // Ensures that Open Types match consistently 
+    // For example, suppose we have a converter from T[] --> Widget<T>
+    // We need to make sure that T is the same in both src and dest. 
+    // So we have a "context" that is shared across both OpenTypes matches and it verifies consistency. 
     public class OpenTypeMatchContext
     {
+        // The 'T' that the OpenType has matched against. 
+        // We can only match against a single T. 
         internal Type _match;
 
         internal bool CheckArg(Type type)

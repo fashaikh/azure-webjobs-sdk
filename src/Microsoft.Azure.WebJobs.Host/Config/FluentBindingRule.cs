@@ -438,7 +438,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
                 BindToTrigger(trigger);
             }
 
-            var triggerBinder = new TriggerHelperBindingProvider<TAttribute, TTriggerValue>(
+            var triggerBinder = new TriggerAdapterBindingProvider<TAttribute, TTriggerValue>(
                 this._parent.NameResolver,
                 this._parent.ConverterManager);
             Bind(triggerBinder);

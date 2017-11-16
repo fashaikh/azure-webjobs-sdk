@@ -54,7 +54,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
                         return typeof(Stream);
                     }    
                 }
-                // Read write stream area not supported. 
+                // Read-write stream are not supported.
             }
 
             return null;
@@ -103,7 +103,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
                 }
                 if (errorMsg != null)
                 {
-                    throw new InvalidOperationException($"The parameter type is a '{errorMsg}' binding, but the Attribute's access type is '{declaredAccess}'");
+                    throw new InvalidOperationException($"The parameter type is a '{errorMsg}' binding, but the declared access is '{declaredAccess}'");
                 }
             }
         }

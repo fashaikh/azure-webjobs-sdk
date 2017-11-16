@@ -2,7 +2,6 @@
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -77,6 +76,7 @@ namespace Microsoft.Azure.WebJobs
 
         /// <summary>Gets the path of the blob to which to bind.</summary>
         [AutoResolve]
+        [BlobNameValidation]
         public string BlobPath
         {
             get { return _blobPath; }
@@ -95,5 +95,5 @@ namespace Microsoft.Azure.WebJobs
         /// Gets or sets the app setting name that contains the Azure Storage connection string.
         /// </summary>
         public string Connection { get; set; }
-    }
+    }   
 }

@@ -13,8 +13,8 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
 {
     // Regular BindToInput has to do a TAttribute --> Value creation. 
     // But triggers already have a Listener that provided the initial object; and we're just
-    // converting it ot the user's target parameter. 
-    internal class TriggerHelperBindingProvider<TAttribute, TTriggerValue> :
+    // converting it to the user's target parameter. 
+    internal class TriggerAdapterBindingProvider<TAttribute, TTriggerValue> :
         FluentBindingProvider<TAttribute>, IBindingProvider, IBindingRuleProvider
            where TAttribute : Attribute
             where TTriggerValue : class
@@ -22,7 +22,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         private readonly INameResolver _nameResolver;
         private readonly IConverterManager _converterManager;
 
-        public TriggerHelperBindingProvider(
+        public TriggerAdapterBindingProvider(
           INameResolver nameResolver,
           IConverterManager converterManager
           )
@@ -38,7 +38,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
 
         public IEnumerable<BindingRule> GetRules()
         {
-            yield break;
+            return BindingRule.Empty;
         }
 
         public Task<IBinding> TryCreateAsync(BindingProviderContext context)
@@ -75,36 +75,12 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
             public bool FromAttribute => true;
 
             public static ExactBinding<TUserType> TryBuild(
-                TriggerHelperBindingProvider<TAttribute, TTriggerValue> parent,
+                TriggerAdapterBindingProvider<TAttribute, TTriggerValue> parent,
                 BindingProviderContext context)
             {
                 IConverterManager cm = parent._converterManager;
 
                 var converter = cm.GetConverter<TTriggerValue, TUserType, TAttribute>();
-                if (converter == null)
-                {
-                    // Is there a stream composition?
-                    // TTriggerValue --> Stream --> TUserType
-                    var c1 = cm.GetConverter<TTriggerValue, Stream, TAttribute>();
-                    if (c1 != null)
-                    {
-                        var c2 = cm.GetConverter<Stream, TUserType, TAttribute>();
-                        if (c2 != null)
-                        {
-                            converter = async (TTriggerValue src, Attribute attr, ValueBindingContext ctx) =>
-                            {
-                                Stream o1 = await c1(src, attr, ctx);
-                                if (o1 ==null)
-                                {
-                                    return default(TUserType);
-                                }
-                                TUserType o2 = await c2(o1, attr, ctx);
-                                return o2;
-                            };
-                        }
-                    }
-                }
-
 
                 if (converter == null)
                 { 
@@ -173,11 +149,6 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
             {
                 throw new NotImplementedException();
             }
-
-            // Caller already filterered on TAttribute
-
-
-            // Get a TTriggerValue --> ParameterType conversion 
         }
     }
 }

@@ -235,10 +235,9 @@ namespace Microsoft.Azure.WebJobs.Host.Blobs.Triggers
                 throw new InvalidOperationException("Unable to convert trigger to IStorageBlob.");
             }
 
-            // Leave ValueProvider null - other binding rules will take care of it.
             IReadOnlyDictionary<string, object> bindingData = CreateBindingData(conversionResult.Result);
 
-            return new TriggerData(null, bindingData);
+            return new TriggerData(bindingData);
         }
 
         public Task<IListener> CreateListenerAsync(ListenerFactoryContext context)

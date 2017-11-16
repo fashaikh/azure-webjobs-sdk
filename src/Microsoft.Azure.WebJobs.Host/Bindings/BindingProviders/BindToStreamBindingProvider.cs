@@ -27,13 +27,16 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
 
         private readonly FuncAsyncConverter<TAttribute, Stream> _builder;
 
-        public BindToStreamBindingProvider(FuncAsyncConverter<TAttribute, Stream> builder, FileAccess access, INameResolver nameResolver, IConverterManager converterManager)
+        public BindToStreamBindingProvider(
+            PatternMatcher patternMatcher,
+            FileAccess access, 
+            INameResolver nameResolver, 
+            IConverterManager converterManager)
         {
+            _builder = patternMatcher.TryGetConverterFunc<TAttribute, Stream>();
             _nameResolver = nameResolver;
             _converterManager = converterManager;
             _access = access;
-
-            _builder = builder;
         }
 
         public Type GetDefaultType(Attribute attribute, FileAccess access, Type requestedType)

@@ -26,7 +26,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
     {
         private readonly JobHostConfiguration _parent;
 
-        private List<FluentBindToInputOptions> _binders = new List<FluentBindToInputOptions>();
+        private List<FluentBinder> _binders = new List<FluentBinder>();
 
         // Filters to apply to current binder
         private List<Func<TAttribute, bool>> _filters = new List<Func<TAttribute, bool>>();
@@ -41,7 +41,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
             _parent = parent;
         }
 
-        internal override ConverterManager Converters
+        internal override ConverterManager ConverterManager
         {
             get
             {
@@ -113,10 +113,11 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// </summary>
         /// <param name="propertyName"></param>
         /// <returns></returns>
-        public FluentBindingRule<TAttribute> When<TValue>(string propertyName, TValue expected)
+        public FluentBindingRule<TAttribute> When<TValue>(string propertyName, TValue expectedEnumValue)
         {
             var prop = ResolveProperty(propertyName);
 
+            // C# doesn't allow generic enum constraints. Must enforce at runtime. 
             if (!typeof(TValue).IsEnum)
             {
                 throw new InvalidOperationException($"Rule filter for '{propertyName}' can only be used with enums.");
@@ -126,21 +127,21 @@ namespace Microsoft.Azure.WebJobs.Host.Config
             if (!propType.IsAssignableFrom(typeof(TValue))) // Handles nullable
             {
                 throw new InvalidOperationException(
-                    $"Type mismatch. Property '{propertyName}' is type '{TypeUtility.GetFriendlyName(propType)}'. " + 
+                    $"Type mismatch. Property '{propertyName}' is of type '{TypeUtility.GetFriendlyName(propType)}'. " + 
                     $"Can't compare to a value of type '{TypeUtility.GetFriendlyName(typeof(TValue))}");
             }
 
             Func<TAttribute, bool> func = (attribute) =>
             {
-                object x = prop.GetValue(attribute);
-                if (x is TValue val) // Handles nullable
+                object objValue = prop.GetValue(attribute);
+                if (objValue is TValue val) // Handles nullable
                 {
-                    return val.Equals(expected);
+                    return val.Equals(expectedEnumValue);
                 }
                 return false;
             };
             _filters.Add(func);
-            AppendFilter(propertyName, "({0} == '" + expected.ToString() + "')");
+            AppendFilter(propertyName, "({0} == '" + expectedEnumValue.ToString() + "')");
 
             return this;
         }
@@ -159,7 +160,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <typeparam name="TType"></typeparam>
         /// <param name="builderInstance"></param>
         /// <returns></returns>
-        public FluentBindToInputOptions BindToInput<TType>(IConverter<TAttribute, TType> builderInstance)
+        public FluentBinder BindToInput<TType>(IConverter<TAttribute, TType> builderInstance)
         {
             var pm = PatternMatcher.New(builderInstance);
             return BindToInput<TType>(pm);
@@ -171,7 +172,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <typeparam name="TType"></typeparam>
         /// <param name="builderInstance"></param>
         /// <returns></returns>
-        public FluentBindToInputOptions BindToInput<TType>(IAsyncConverter<TAttribute, TType> builderInstance)
+        public FluentBinder BindToInput<TType>(IAsyncConverter<TAttribute, TType> builderInstance)
         {
             var pm = PatternMatcher.New(builderInstance);
             return BindToInput<TType>(pm);
@@ -186,7 +187,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <param name="constructorArgs">constructor arguments to pass to the typeBuilder instantiation. This can be used 
         /// to flow state (like configuration, secrets, etc) from the configuration to the specific binding</param>
         /// <returns>A binding rule.</returns>
-        public FluentBindToInputOptions BindToInput<TType>(
+        public FluentBinder BindToInput<TType>(
             Type builderType,
             params object[] constructorArgs)
         {
@@ -201,7 +202,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <typeparam name="TType"></typeparam>
         /// <param name="builder"></param>
         /// <returns></returns>
-        public FluentBindToInputOptions BindToInput<TType>(Func<TAttribute, ValueBindingContext, Task<TType>> builder)        
+        public FluentBinder BindToInput<TType>(Func<TAttribute, ValueBindingContext, Task<TType>> builder)        
         {
             var pm = PatternMatcher.New(builder);
             return BindToInput<TType>(pm);
@@ -214,7 +215,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <typeparam name="TType"></typeparam>
         /// <param name="builder"></param>
         /// <returns></returns>
-        public FluentBindToInputOptions BindToInput<TType>(Func<TAttribute, CancellationToken, Task<TType>> builder)
+        public FluentBinder BindToInput<TType>(Func<TAttribute, CancellationToken, Task<TType>> builder)
         {
             var pm = PatternMatcher.New(builder);
             return BindToInput<TType>(pm);
@@ -227,14 +228,14 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <typeparam name="TType"></typeparam>
         /// <param name="builder"></param>
         /// <returns></returns>
-        public FluentBindToInputOptions BindToInput<TType>(Func<TAttribute, TType> builder)
+        public FluentBinder BindToInput<TType>(Func<TAttribute, TType> builder)
         {
             var pm = PatternMatcher.New(builder);
             return BindToInput<TType>(pm);
         }
 
         // Common worker for BindToInput rules. 
-        private FluentBindToInputOptions BindToInput<TType>(PatternMatcher pm)
+        private FluentBinder BindToInput<TType>(PatternMatcher pm)
         {
             var rule = new BindToInputBindingProvider<TAttribute, TType>(_parent.NameResolver, _parent.ConverterManager, pm);
             return Bind(rule);
@@ -249,15 +250,12 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// It uses the attribute's Access property to determine direction (Read/Write). 
         /// It includes rules for additional types of TextReader,string, byte[], and TextWriter,out string, out byte[].
         /// </summary>
-        /// <param name="func"></param>
+        /// <param name="builder"></param>
         /// <param name="fileAccess"></param>
-        public void BindToStream(Func<TAttribute, ValueBindingContext, Task<Stream>> func, FileAccess fileAccess)
+        public void BindToStream(Func<TAttribute, ValueBindingContext, Task<Stream>> builder, FileAccess fileAccess)
         {
-            var nameResolver = _parent.NameResolver;
-            var pm = PatternMatcher.New(func);
-            var builder = pm.TryGetConverterFunc<TAttribute, Stream>(); // throws 
-            var rule = new BindToStreamBindingProvider<TAttribute>(builder, fileAccess, nameResolver, _parent.ConverterManager);
-            Bind(rule);
+            var pm = PatternMatcher.New(builder);
+            BindToStream(pm, fileAccess);
         }
 
         /// <summary>
@@ -270,10 +268,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         public void BindToStream(IAsyncConverter<TAttribute, Stream> builderInstance, FileAccess fileAccess)
         {
             var pm = PatternMatcher.New(builderInstance);
-            var builder = pm.TryGetConverterFunc<TAttribute, Stream>(); // throws 
-            var nameResolver = _parent.NameResolver;
-            var rule = new BindToStreamBindingProvider<TAttribute>(builder, fileAccess, nameResolver,  _parent.ConverterManager);
-            Bind(rule);
+            BindToStream(pm, fileAccess);
         }
 
         /// <summary>
@@ -286,9 +281,13 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         public void BindToStream(IConverter<TAttribute, Stream> builderInstance, FileAccess fileAccess)
         {
             var pm = PatternMatcher.New(builderInstance);
-            var builder = pm.TryGetConverterFunc<TAttribute, Stream>(); // throws
-            var nameResolver = _parent.NameResolver;
-            var rule = new BindToStreamBindingProvider<TAttribute>(builder, fileAccess, nameResolver, _parent.ConverterManager);
+            BindToStream(pm, fileAccess);
+        }
+
+        private void BindToStream(PatternMatcher patternMatcher, FileAccess fileAccess)
+        {
+            // This will throw immediately if it can't match an ATtribute-->Stream converter. 
+            var rule = new BindToStreamBindingProvider<TAttribute>(patternMatcher, fileAccess, _parent.NameResolver, _parent.ConverterManager);
             Bind(rule);
         }
 
@@ -301,7 +300,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// </summary>
         /// <param name="builder">Builder function to create a IValueBinder given a resolved attribute and the user parameter type. </param>
         /// <returns>A binding provider that applies these semantics.</returns>
-        public FluentBindToInputOptions BindToValueProvider(Func<TAttribute, Type, Task<IValueBinder>> builder)            
+        public FluentBinder BindToValueProvider(Func<TAttribute, Type, Task<IValueBinder>> builder)            
         {
             return BindToValueProvider<object>(builder);
         }
@@ -313,7 +312,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <typeparam name="TType">An Open Type. This rule is only applied if the parameter type matches the open type</typeparam>
         /// <param name="builder">Builder function to create a IValueBinder given a resolved attribute and the user parameter type. </param>
         /// <returns>A binding provider that applies these semantics.</returns>
-        public FluentBindToInputOptions BindToValueProvider<TType>(Func<TAttribute, Type, Task<IValueBinder>> builder)
+        public FluentBinder BindToValueProvider<TType>(Func<TAttribute, Type, Task<IValueBinder>> builder)
         {
             var ot = OpenType.FromType<TType>();
             var nameResolver = this._parent.NameResolver;
@@ -327,7 +326,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// </summary>
         /// <param name="binder"></param>
         /// <returns></returns>
-        public FluentBindToInputOptions Bind(IBindingProvider binder)
+        public FluentBinder Bind(IBindingProvider binder)
         {
             if (this._hook != null)
             {
@@ -361,7 +360,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
                 this._filters.Clear();    
             }
 
-            var opts = new FluentBindToInputOptions(_parent, binder);
+            var opts = new FluentBinder(_parent, binder);
             _binders.Add(opts);
             return opts;
         }
@@ -498,11 +497,11 @@ namespace Microsoft.Azure.WebJobs.Host.Config
 
         // Expose operations for customizing the current binder. 
         // These apply after the binder has matched.
-        public class FluentBindToInputOptions
+        public class FluentBinder
         {
             private readonly JobHostConfiguration _parent;
 
-            internal FluentBindToInputOptions(JobHostConfiguration parent, IBindingProvider binder)
+            internal FluentBinder(JobHostConfiguration parent, IBindingProvider binder)
             {
                 this._parent = parent;
                 this.Binder = binder;

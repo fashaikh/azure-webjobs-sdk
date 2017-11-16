@@ -4,8 +4,8 @@
 namespace Microsoft.Azure.WebJobs.Host.Config
 {
     // Used to register a converter that applies a New value to an existing value. 
-    // This is common for Streams. The new value is written to an existing stream instantation. 
-    class Apply<TNew, TExisting>
+    // This is common for Streams. The new value is written to the existing stream instantation. 
+    internal class Apply<TNew, TExisting>
     {
         public TNew Value;
         public TExisting Existing;

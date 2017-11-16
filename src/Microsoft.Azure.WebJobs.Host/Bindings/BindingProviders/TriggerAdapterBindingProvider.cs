@@ -123,7 +123,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
                     if (_directInvoker != null && (value is string str))
                     {
                         // Direct invoke case. Need to converrt String-->TTriggerValue. 
-                        val = await _directInvoker(DirectInvokeString.New(str), _attribute, context);
+                        val = await _directInvoker(new DirectInvokeString(str), _attribute, context);
                     }
                     else
                     {

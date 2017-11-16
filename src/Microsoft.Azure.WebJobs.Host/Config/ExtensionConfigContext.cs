@@ -31,7 +31,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// </summary>
         public TraceWriter Trace { get; set; }
 
-        internal override ConverterManager Converters
+        internal override ConverterManager ConverterManager
         {
             get
             {

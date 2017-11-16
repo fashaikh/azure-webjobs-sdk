@@ -106,7 +106,7 @@ namespace Microsoft.Azure.WebJobs.Host.Executors
                 config.AddExtension(new TableExtension());
                 config.AddExtension(new QueueExtension());
                 config.AddExtension(new Blobs.Bindings.BlobExtensionConfig());
-                config.AddExtension(new BlobTriggerExtension());
+                config.AddExtension(new BlobTriggerExtensionConfig());
             }
 
             ExtensionConfigContext context = new ExtensionConfigContext
@@ -522,7 +522,8 @@ namespace Microsoft.Azure.WebJobs.Host.Executors
             }
         }
 
-        #region Hackery for ExtensionLocator
+        #region Backwards compat shim for ExtensionLocator
+        // We can remove this when we fix https://github.com/Azure/azure-webjobs-sdk/issues/995
 
         // create IConverterManager adapters to any legacy ICloudBlobStreamBinder<T>. 
         static void AddStreamConverters(IExtensionTypeLocator extensionTypeLocator, ConverterManager cm)
@@ -534,12 +535,12 @@ namespace Microsoft.Azure.WebJobs.Host.Executors
 
             foreach (var type in extensionTypeLocator.GetCloudBlobStreamBinderTypes())
             {
-                var inst = Activator.CreateInstance(type);
+                var instance = Activator.CreateInstance(type);
 
-                var t = Blobs.CloudBlobStreamObjectBinder.GetBindingValueType(type);
-                var m = typeof(JobHostConfigurationExtensions).GetMethod("AddAdapter", BindingFlags.Static | BindingFlags.NonPublic);
-                m = m.MakeGenericMethod(t);
-                m.Invoke(null, new object[] { cm, inst });
+                var bindingType = Blobs.CloudBlobStreamObjectBinder.GetBindingValueType(type);
+                var method = typeof(JobHostConfigurationExtensions).GetMethod("AddAdapter", BindingFlags.Static | BindingFlags.NonPublic);
+                method = method.MakeGenericMethod(bindingType);
+                method.Invoke(null, new object[] { cm, instance });
             }
         }
 

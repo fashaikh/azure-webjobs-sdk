@@ -23,8 +23,7 @@ using System.Threading;
 
 namespace Microsoft.Azure.WebJobs.Host.Blobs.Triggers
 {
-    internal class BlobTriggerExtension : IExtensionConfigProvider,
-        IAsyncConverter<IStorageBlob, Stream>
+    internal class BlobTriggerExtensionConfig : IExtensionConfigProvider        
     {
         private IStorageAccountProvider _accountProvider;
 
@@ -35,14 +34,14 @@ namespace Microsoft.Azure.WebJobs.Host.Blobs.Triggers
             var rule = context.AddBindingRule<BlobTriggerAttribute>();
             rule.BindToTrigger<IStorageBlob>();
 
-            rule.AddConverter<IStorageBlob, DirectInvokeString>(blob => DirectInvokeString.New(blob.GetBlobPath()));
-            rule.AddConverter<DirectInvokeString, IStorageBlob>(ConvertX);
+            rule.AddConverter<IStorageBlob, DirectInvokeString>(blob => new DirectInvokeString(blob.GetBlobPath()));
+            rule.AddConverter<DirectInvokeString, IStorageBlob>(ConvertFromInvokeString);
 
             // Common converters shared between [Blob] and [BlobTrigger]
 
             // Trigger already has the IStorageBlob. Whereas BindToInput defines: Attr-->Stream. 
             //  Converter manager already has Stream-->Byte[],String,TextReader
-            context.AddConverter<IStorageBlob, Stream>(this);
+            context.AddConverter<IStorageBlob, Stream>(ConvertToStreamAsync);
 
             // Blob type is a property of an existing blob. 
             context.AddConverter(new StorageBlobToCloudBlobConverter());
@@ -51,14 +50,14 @@ namespace Microsoft.Azure.WebJobs.Host.Blobs.Triggers
             context.AddConverter(new StorageBlobToCloudAppendBlobConverter());
         }
 
-        async Task<Stream> IAsyncConverter<IStorageBlob, Stream>.ConvertAsync(IStorageBlob input, CancellationToken cancellationToken)
+        private async Task<Stream> ConvertToStreamAsync(IStorageBlob input, CancellationToken cancellationToken)
         {
             WatchableReadStream watchableStream = await ReadBlobArgumentBinding.TryBindStreamAsync(input, cancellationToken);
             return watchableStream;
         }
 
-        // For descirbing InvokeStrings.
-        private async Task<IStorageBlob> ConvertX(DirectInvokeString input, Attribute attr, ValueBindingContext context)
+        // For describing InvokeStrings.
+        private async Task<IStorageBlob> ConvertFromInvokeString(DirectInvokeString input, Attribute attr, ValueBindingContext context)
         {
             var attrResolved = (BlobTriggerAttribute)attr;
             var account = await _accountProvider.GetStorageAccountAsync(attrResolved, CancellationToken.None);

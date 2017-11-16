@@ -4,6 +4,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.Azure.WebJobs.Host.Bindings;
+using System.Threading;
 
 namespace Microsoft.Azure.WebJobs.Host.Config
 {
@@ -17,7 +18,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
     public abstract class FluentConverterRules<TAttribute, TThis> where TAttribute : Attribute
     {
         // Access the converter manager that we're adding rules to. 
-        internal abstract ConverterManager Converters { get; }
+        internal abstract ConverterManager ConverterManager { get; }
 
         /// <summary>
         /// Add basic converter
@@ -30,9 +31,10 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         {
             VerifyNotOpenTypes<TSource, TDestination>();
 
-            // The converter is implicitly for this TAttribute. 
-            Func<TSource, TAttribute, TDestination> func2 = (TSource src, TAttribute attr) => func(src);
-            this.AddConverter(func2);
+            // The converter is implicitly for this TAttribute even though it doesn't need an attribute parameter. 
+            var pm = PatternMatcher.New(func);
+            this.AddConverterBuilder<TSource, TDestination>(pm);
+
             return (TThis)(object)this;
         }
 
@@ -46,8 +48,27 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         public TThis AddConverter<TSource, TDestination>(Func<TSource, TAttribute, TDestination> func)
         {
             VerifyNotOpenTypes<TSource, TDestination>();
-                        
-            this.Converters.AddExactConverter(func);
+
+            var pm = PatternMatcher.New(func);
+            this.AddConverterBuilder<TSource, TDestination>(pm);
+
+            return (TThis)(object)this;
+        }
+
+        /// <summary>
+        /// Add converter that uses the control attribute. 
+        /// </summary>
+        /// <typeparam name="TSource"></typeparam>
+        /// <typeparam name="TDestination"></typeparam>
+        /// <param name="func"></param>
+        /// <returns></returns>
+        public TThis AddConverter<TSource, TDestination>(Func<TSource, CancellationToken, Task<TDestination>> func)
+        {
+            VerifyNotOpenTypes<TSource, TDestination>();
+
+            var pm = PatternMatcher.New(func);
+            this.AddConverterBuilder<TSource, TDestination>(pm);
+
             return (TThis)(object)this;
         }
 
@@ -62,9 +83,9 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         {
             VerifyNotOpenTypes<TSource, TDestination>();
 
-            FuncConverterBuilder builder = PatternMatcher.GetBuilder(func);
-            this.Converters.AddConverter<TSource, TDestination, TAttribute>(builder);
-            
+            var pm = PatternMatcher.New(func);
+            this.AddConverterBuilder<TSource, TDestination>(pm);
+
             return (TThis)(object)this;
         }
 
@@ -79,9 +100,9 @@ namespace Microsoft.Azure.WebJobs.Host.Config
         /// <returns></returns>
         public TThis AddOpenConverter<TSource, TDestination>(FuncAsyncConverter func)
         {
-            FuncConverterBuilder builder = PatternMatcher.GetBuilder(func);
-                   
-            this.Converters.AddConverter<TSource, TDestination, TAttribute>(builder);
+            var pm = PatternMatcher.New(func);
+            this.AddConverterBuilder<TSource, TDestination>(pm);
+
             return (TThis)(object)this;
         }
 
@@ -136,7 +157,7 @@ namespace Microsoft.Azure.WebJobs.Host.Config
           PatternMatcher patternMatcher)
         {
             var builder = patternMatcher.GetBuilder();
-            this.Converters.AddConverter<TSource, TDestination, TAttribute>(builder);
+            this.ConverterManager.AddConverter<TSource, TDestination, TAttribute>(builder);
                 
             return (TThis)(object)this;
         }

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 namespace Microsoft.Azure.WebJobs.Host.Bindings
 {
     // Helper for constructing a FuncConverterBuilder/FuncAsyncConverter via pattern matching. 
+    // This can normalize various delegate signatures to a standard FuncConverterBuilder.
     // This is particularly useful for OpenTypes.
     // Find a Convert() method on a class that matches the type parameters. 
     internal abstract class PatternMatcher
@@ -33,6 +34,13 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
             return new CreateFromInstance(instance);
         }
 
+        public static PatternMatcher New<TSource, TDest, TAttribute>(Func<TSource, TAttribute, TDest> func)
+            where TAttribute : System.Attribute
+        {
+            FuncAsyncConverter converter = (src, attr, ctx) => Task.FromResult<object>(func((TSource)src, (TAttribute) attr));
+            return new CreateFromDelegate(converter);
+        }
+
         public static PatternMatcher New<TSource, TDest>(Func<TSource, ValueBindingContext, Task<TDest>> func)
         {
             FuncAsyncConverter converter = async (src, attr, ctx) => await func((TSource) src, ctx);
@@ -51,7 +59,19 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
             return new CreateFromDelegate(converter);
         }
 
-        public static PatternMatcher NewObj(object instance)
+        public static PatternMatcher New<TSource, TDest>(FuncAsyncConverter<TSource, TDest> func)
+        {
+            FuncAsyncConverter converter = async (input, attr, ctx) => (object)await func((TSource)input, attr, ctx);
+            return new CreateFromDelegate(converter);
+        }
+
+        public static PatternMatcher New(FuncAsyncConverter func)
+        {
+            FuncAsyncConverter converter = func;
+            return new CreateFromDelegate(converter);
+        }
+
+        internal static PatternMatcher NewObj(object instance) // Test only
         {
             return new CreateFromInstance(instance);
         }

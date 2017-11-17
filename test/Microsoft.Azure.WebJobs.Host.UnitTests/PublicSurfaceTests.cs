@@ -148,6 +148,7 @@ namespace Microsoft.Azure.WebJobs.Host.UnitTests
 
             var expected = new[]
             {
+                "ApplyConversion`2",
                 "DefaultNameResolver",
                 "FunctionInstanceLogEntry",
                 "IConverter`2",
@@ -173,7 +174,7 @@ namespace Microsoft.Azure.WebJobs.Host.UnitTests
                 "BindingTemplate",
                 "BindStepOrder",
                 "FluentBindingRule`1",
-                "FluentBindToInputOptions",
+                "FluentBinder",
                 "IJobHostMetadataProvider",
                 "FluentConverterRules`2",
                 "IWebHookProvider",

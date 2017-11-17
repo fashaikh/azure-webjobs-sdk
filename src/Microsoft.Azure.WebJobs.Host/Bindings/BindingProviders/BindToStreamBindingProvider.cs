@@ -259,7 +259,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
                 {
                     if (parameter.IsOut)
                     {
-                        var outConverter = cm.GetConverter<Apply<TUserType, Stream>, object, TAttribute>();
+                        var outConverter = cm.GetConverter<ApplyConversion<TUserType, Stream>, object, TAttribute>();
                         if (outConverter != null)
                         {
                             converterParam = outConverter;
@@ -481,11 +481,11 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
         // These are special in that they don't create the stream until after the function returns. 
         private class OutArgBaseValueProvider<TUserType> : BaseValueProvider
         {
-            private readonly FuncAsyncConverter<Apply<TUserType, Stream>, object> _converter;
+            private readonly FuncAsyncConverter<ApplyConversion<TUserType, Stream>, object> _converter;
 
             public OutArgBaseValueProvider(object converter)
             {
-                _converter = (FuncAsyncConverter<Apply<TUserType, Stream>, object>)converter;
+                _converter = (FuncAsyncConverter<ApplyConversion<TUserType, Stream>, object>)converter;
             }
 
             override protected Task<object> CreateUserArgAsync()
@@ -508,7 +508,7 @@ namespace Microsoft.Azure.WebJobs.Host.Bindings
                 // Now Create the stream 
                 using (var stream = await this.GetOrCreateStreamAsync())
                 {
-                    var pair = new Apply<TUserType, Stream>
+                    var pair = new ApplyConversion<TUserType, Stream>
                     {
                         Value = (TUserType) value,
                         Existing = stream

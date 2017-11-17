@@ -35,7 +35,7 @@ namespace Microsoft.Azure.WebJobs
             this.AddExactConverter<byte[], string>(DefaultByteArrayToString);
             this.AddExactConverter<IEnumerable<JObject>, JArray>((enumerable) => JArray.FromObject(enumerable));            
         
-            this.AddExactConverter<Apply<string, Stream>, object>(async (pair, cancellationToken) =>
+            this.AddExactConverter<ApplyConversion<string, Stream>, object>(async (pair, cancellationToken) =>
           {
               var text = pair.Value;
               var stream = pair.Existing;
@@ -49,7 +49,7 @@ namespace Microsoft.Azure.WebJobs
               return null;
           });
 
-            this.AddExactConverter<Apply<byte[], Stream>, object>(async (pair, cancellationToken) =>
+            this.AddExactConverter<ApplyConversion<byte[], Stream>, object>(async (pair, cancellationToken) =>
             {
                 var bytes = pair.Value;
                 var stream = pair.Existing;
